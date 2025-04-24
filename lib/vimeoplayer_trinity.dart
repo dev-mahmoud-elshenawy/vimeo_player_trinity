@@ -1,5 +1,7 @@
 library vimeoplayer;
 
+import 'dart:collection';
+
 import 'package:better_player_enhanced/better_player.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +12,9 @@ import 'src/quality_links.dart';
 class VimeoPlayer extends StatefulWidget {
   /// Vimeo video id
   final String? id;
+
+  /// Vimeo access token
+  final String? accessToken;
 
   /// Whether player should autoplay video
   final bool autoPlay;
@@ -32,6 +37,12 @@ class VimeoPlayer extends StatefulWidget {
   /// Progress indicator background color
   final Color? loaderBackgroundColor;
 
+  /// Initial quality of the video. If null, the first available quality will be used.
+  final String? initialQuality;
+
+  /// Sets the highest quality available for the video. If null, the default quality will be used.
+  final bool? highestQuality;
+
   /// Defines the set of allowed device orientations on entering fullscreen
   final List<DeviceOrientation> deviceOrientationsOnFullScreen;
 
@@ -46,6 +57,8 @@ class VimeoPlayer extends StatefulWidget {
     this.autoPlay = false,
     this.looping = false,
     this.controlsConfig,
+    this.initialQuality,
+    this.highestQuality,
     this.loaderColor = Colors.white,
     this.loaderBackgroundColor,
     this.fullScreenByDefault = false,
@@ -62,6 +75,7 @@ class VimeoPlayer extends StatefulWidget {
     ],
     this.autoDetectFullscreenDeviceOrientation = false,
     super.key,
+    this.accessToken,
   }) : assert(id != null, 'Video ID can not be null');
 
   @override
@@ -74,6 +88,7 @@ class _VimeoPlayerState extends State<VimeoPlayer> {
 
   //Quality Class
   late QualityLinks _quality;
+  String? _qualityValue;
   BetterPlayerController? _betterPlayerController;
 
   @override
@@ -81,22 +96,38 @@ class _VimeoPlayerState extends State<VimeoPlayer> {
     fullScreenByDefault = widget.fullScreenByDefault;
 
     //Create class
-    _quality = QualityLinks(widget.id);
+    _quality = QualityLinks(
+      widget.id,
+      widget.accessToken,
+    );
 
     //Initializing video controllers when receiving data from Vimeo
     _quality.getQualitiesSync().then((value) {
-      final qualityValue = value[value.lastKey()];
+      value ??= SplayTreeMap();
+
+      SplayTreeMap? va = value;
+
+      String? initialKey = (widget.initialQuality ?? '').isNotEmpty
+          ? va.keys.where((key) => key.contains(widget.initialQuality)).first ??
+              ''
+          : '';
+
+      _qualityValue = (initialKey ?? '').trim().isNotEmpty
+          ? value[initialKey]
+          : value[(widget.highestQuality ?? true)
+              ? value.lastKey()
+              : value.firstKey()];
 
       // Create resolutions map
       Map<String, String> resolutionsMap = {};
-      value.keys.forEach((key) {
+      for (var key in value.keys) {
         String processedKey = key.split(" ")[0];
         resolutionsMap[processedKey] = value[key];
-      });
+      }
 
       BetterPlayerDataSource betterPlayerDataSource = BetterPlayerDataSource(
         BetterPlayerDataSourceType.network,
-        qualityValue,
+        _qualityValue ?? '',
         resolutions: resolutionsMap,
       );
 

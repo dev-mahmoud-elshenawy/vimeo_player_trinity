@@ -9,9 +9,9 @@ class QualityLinks {
   String? videoId;
   String? accessToken;
 
-  QualityLinks(this.videoId);
+  QualityLinks(this.videoId, this.accessToken);
 
-  getQualitiesSync() {
+  Future<SplayTreeMap?> getQualitiesSync() {
     return getQualitiesAsync();
   }
 
